@@ -1,0 +1,6 @@
+name: astrbot_plugin_adguard
+desc: QQ 群广告检测插件。检测文字/图片/视频中的广告内容，支持撤回、禁言、踢人多级处置，内置二次人工审核与学习。
+help: 发送 /adguard help 查看插件帮助与指令说明
+version: v1.0.0
+author: lango578
+repo: https://github.com/lango578/astrbot_plugin_adguard
