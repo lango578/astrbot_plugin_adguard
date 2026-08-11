@@ -435,31 +435,38 @@ class AdGuardPlugin(Star):
     async def _check_media_bytes(
         self, event: AstrMessageEvent, data: bytes, mode: str, kind: str
     ) -> tuple[int, list[str]]:
-        """对一段图片/视频帧数据进行广告检测。返回 (分数, 命中说明)。"""
+        """对一段图片/视频帧数据进行广告检测。返回 (分数, 命中说明)。
+
+        mode:
+          - "ai":   仅 AI 视觉（智谱 GLM-4V-Flash 优先，回退 AstrBot LLM）
+          - "ocr":  仅本地 OCR
+          - "auto": OCR 优先，未命中再由 AI（智谱）兜底
+        """
         if not data:
             return 0, []
-        use_ocr = mode in ("ocr", "auto")
-        use_ai = mode in ("ai", "auto")
+        mode = str(mode)
+
+        # ---------- auto 模式：OCR 优先，AI 兜底 ----------
         if mode == "auto":
-            use_ocr = self._ocr_available
-            use_ai = not use_ocr
-            if not use_ocr and not use_ai:
-                return 0, []
+            if self._ocr_available:
+                ocr_text = await self._ocr_media(data)
+                if ocr_text:
+                    score, hits = self._score_text(ocr_text)
+                    if hits:
+                        return score, [
+                            f"{kind}识别到广告文字: " + "、".join(hits[:5])
+                        ]
+            # OCR 未命中 → AI（智谱优先）兜底
+            return await self._ai_check_media(event, data, kind)
 
-        if use_ai:
-            verdict, reason = await self._ai_check(event, data, kind)
-            if verdict == "ad":
-                return 999, [f"{kind}AI识别为广告: {reason}" if reason else f"{kind}AI识别为广告"]
-            if verdict == "unknown":
-                # AI 无法判定（无返回/解析失败/无提供商）→ 标记待人工审核，由审核分支接管
-                return 0, [f"{kind}AI无法判定，待人工审核"]
-            # verdict == "ok"：AI 判定非广告
-            if mode == "ai":
-                return 0, []
-            # auto 模式下 AI 兜底未命中，继续尝试 OCR
-            use_ocr = self._ocr_available
+        # ---------- 纯 AI 模式 ----------
+        if mode == "ai":
+            return await self._ai_check_media(event, data, kind)
 
-        if use_ocr:
+        # ---------- 纯 OCR 模式 ----------
+        if mode == "ocr":
+            if not self._ocr_available:
+                return 0, []
             ocr_text = await self._ocr_media(data)
             if not ocr_text:
                 return 0, []
@@ -467,6 +474,26 @@ class AdGuardPlugin(Star):
             if not hits:
                 return 0, []
             return score, [f"{kind}识别到广告文字: " + "、".join(hits[:5])]
+        return 0, []
+
+    async def _ai_check_media(
+        self, event: AstrMessageEvent, data: bytes, kind: str
+    ) -> tuple[int, list[str]]:
+        """调用 AI 视觉（智谱 GLM-4V-Flash 优先）检查媒体。返回 (分数, 命中说明)。"""
+        verdict, reason = await self._ai_check(event, data, kind)
+        if verdict == "ad":
+            return 999, [
+                f"{kind}AI识别为广告: {reason}"
+                if reason
+                else f"{kind}AI识别为广告"
+            ]
+        if verdict == "unknown":
+            # AI 不可用（未配置智谱且无 AstrBot 提供商 / 缺 httpx）→ 跳过
+            if reason in ("无可用AI提供商", "缺少httpx依赖"):
+                return 0, []
+            # AI 无法判定 → 标记待人工审核，由审核分支接管
+            return 0, [f"{kind}AI无法判定，待人工审核"]
+        # verdict == "ok"：AI 判定非广告
         return 0, []
 
     # ============================================================
