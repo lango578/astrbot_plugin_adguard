@@ -127,7 +127,8 @@ HELP_TEXT = (
     "二次审核:\n"
     "/adguard audit <编号> yes|no - 确认广告/误判（学习记录）\n"
     "/adguard pending - 查看待审核列表\n"
-    "/adguard forget <编号> - 移除待审核记录"
+    "/adguard forget <编号> - 移除待审核记录\n"
+    "/adguard selftest - 插件自检(依赖/配置/文本检测)"
 )
 
 class AdGuardPlugin(Star):
@@ -1308,6 +1309,48 @@ class AdGuardPlugin(Star):
             yield event.plain_result("请在本群执行此命令")
             return
         arg = self._strip_cmd(event.message_str, "forget")
+
+    @adguard.command("selftest")
+    async def adguard_selftest(self, event: AstrMessageEvent):
+        """插件自检：输出配置、依赖、智谱 Key 与文本检测测试结果。"""
+        lines = ["🔧 广告检测插件自检"]
+        try:
+            from astrbot import VERSION as _v
+            lines.append(f"插件版本: v1.1.1 | AstrBot: {_v}")
+        except Exception:
+            lines.append("插件版本: v1.1.1")
+        lines.append(f"启用: {'✅' if self._enabled() else '❌'} | "
+                     f"图片={self._cfg('image_check', 'auto')} | "
+                     f"视频={self._cfg('video_check', 'auto')}")
+        lines.append(
+            f"依赖: OCR={'✅' if self._ocr_available else '❌'} | "
+            f"OpenCV={'✅' if self._cv2_available else '❌'} | "
+            f"httpx={'✅' if httpx is not None else '❌'}"
+        )
+        zkey = self._zhipu_api_key()
+        if zkey:
+            lines.append(f"智谱: ✅ 已配置 (key 前 {min(len(zkey), 8)} 位: {zkey[:8]}... | "
+                         f"模型: {self._cfg('zhipu_model', 'glm-4v-flash')})")
+        else:
+            lines.append("智谱: ❌ 未配置（zhipu_api_key_id / zhipu_api_key_secret 为空）")
+        thr = int(self._cfg("score_threshold", 4) or 4)
+        media_thr = int(self._cfg("media_score_threshold", 3) or 3)
+        audit_thr = int(self._cfg("audit_threshold", 2) or 2)
+        lines.append(f"阈值: 文本={thr} 媒体={media_thr} 审核={audit_thr}")
+        # 文本检测自检
+        ad = "加群领福利 微信xxx 群号：12345678"
+        ok = "今天天气不错，大家晚上好"
+        s_ad, hits_ad = self._score_text(ad)
+        s_ok, _ = self._score_text(ok)
+        lines.append(
+            f"文本自检[广告]: 得分={s_ad} (阈值{thr}) "
+            f"{'✅ 命中' if s_ad >= thr else '❌ 未达阈值'} 命中={hits_ad[:3]}"
+        )
+        lines.append(
+            f"文本自检[正常]: 得分={s_ok} {'' if s_ok < thr else '⚠️ 疑似误判'}"
+        )
+        yield event.plain_result("\n".join(lines))
+
         aid = arg.split()[0] if arg else ""
         if not aid:
             yield event.plain_result("用法：/adguard forget <编号>")
