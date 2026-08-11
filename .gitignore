@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# 编辑器
+.vscode/
+.idea/
+*.swp
+
+# 临时/调试文件
+*.log
+_*.py
+_*.ps1
+_*.txt
+
+# 运行数据（如有）
+data/
