@@ -200,5 +200,25 @@
     "description": "学习记录库上限（超出自动淘汰最旧记录）",
     "type": "int",
     "default": 500
+  },
+  "zhipu_api_key_id": {
+    "description": "智谱开放平台 API Key 的 ID 部分（open.bigmodel.cn 获取），也可在此直接填完整 Key",
+    "type": "string",
+    "default": ""
+  },
+  "zhipu_api_key_secret": {
+    "description": "智谱开放平台 API Key 的 Secret 部分（与 ID 拼接成完整 Key）",
+    "type": "string",
+    "default": ""
+  },
+  "zhipu_model": {
+    "description": "智谱视觉模型名称",
+    "type": "string",
+    "default": "glm-4v-flash"
+  },
+  "zhipu_base_url": {
+    "description": "智谱 API 地址（一般无需修改）",
+    "type": "string",
+    "default": "https://open.bigmodel.cn/api/paas/v4/chat/completions"
   }
 }
