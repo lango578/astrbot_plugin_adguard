@@ -454,9 +454,16 @@ class AdGuardPlugin(Star):
         try:
             provider_id = str(self._cfg("ai_provider_id", "") or "")
             if not provider_id:
-                provider_id = await self.context.get_current_chat_provider_id(
-                    umo=event.unified_msg_origin
-                )
+                try:
+                    provider_id = await self.context.get_current_chat_provider_id(
+                        umo=event.unified_msg_origin
+                    )
+                except Exception as e:
+                    logger.debug(f"adguard: 获取当前会话模型失败: {e}")
+                    provider_id = ""
+            if not provider_id:
+                # 当前会话模型不可用（如配置了不存在的 ID）→ 尝试任意可用提供商
+                provider_id = await self._find_any_provider()
             if not provider_id:
                 logger.warning("adguard: 未找到可用的 AI 模型提供商，跳过 AI 检测")
                 return "unknown", "无可用AI提供商"
@@ -472,6 +479,19 @@ class AdGuardPlugin(Star):
         except Exception as e:
             logger.warning(f"adguard: AI 识别失败({kind}): {e}")
             return "unknown", f"AI识别出错"
+
+    async def _find_any_provider(self) -> str:
+        """当前会话模型 ID 无效时，尝试返回任意一个已加载的提供商 ID。"""
+        try:
+            pm = self.context.provider_manager
+            for inst in pm.get_insts():
+                pid = getattr(inst, "id", "") or ""
+                if pid:
+                    logger.debug(f"adguard: 使用可用提供商兜底: {pid}")
+                    return str(pid)
+        except Exception as e:
+            logger.debug(f"adguard: 查找可用提供商失败: {e}")
+        return ""
 
     async def _check_media_bytes(
         self, event: AstrMessageEvent, data: bytes, mode: str, kind: str
