@@ -144,6 +144,7 @@ class AdGuardPlugin(Star):
         self._cv2_available = cv2 is not None
         self._seen_ids: deque = deque(maxlen=800)    # 消息去重
         self._last_punish: dict[str, float] = {}     # 处罚冷却
+        self._zhipu_fail_until: float = 0.0  # 智谱失败冷却截止时间戳
 
     async def terminate(self):
         """插件卸载/停用时调用。"""
@@ -358,6 +359,10 @@ class AdGuardPlugin(Star):
     def _zhipu_configured(self) -> bool:
         return bool(self._zhipu_api_key())
 
+    def _zhipu_ready(self) -> bool:
+        """智谱是否可用：已配置 key 且不在失败冷却期。"""
+        return self._zhipu_configured() and time.time() >= self._zhipu_fail_until
+
     async def _zhipu_ai_check(
         self, img_bytes: bytes, kind: str
     ) -> tuple[str, str]:
@@ -423,9 +428,11 @@ class AdGuardPlugin(Star):
             logger.warning(
                 f"adguard: 智谱AI请求失败({kind}) HTTP {e.response.status_code}: {detail}"
             )
+            self._zhipu_fail_until = time.time() + 300  # 冷却 5 分钟
             return "unknown", "智谱AI请求失败"
         except Exception as e:
             logger.warning(f"adguard: 智谱AI识别失败({kind}): {e}")
+            self._zhipu_fail_until = time.time() + 300  # 冷却 5 分钟
             return "unknown", "智谱AI识别出错"
 
 
@@ -434,8 +441,8 @@ class AdGuardPlugin(Star):
     ) -> tuple[str, str]:
         """判断图片是否为广告。优先使用智谱 GLM-4V-Flash（若已配置 API Key），
         智谱失败（余额不足/网络等）时回退到 AstrBot 配置的 LLM。返回 (verdict, reason)。"""
-        # 优先智谱 GLM-4V-Flash
-        if self._zhipu_configured():
+        # 优先智谱 GLM-4V-Flash（已配置且不在失败冷却期）
+        if self._zhipu_ready():
             logger.debug(f"adguard: 使用智谱 GLM-4V-Flash 检测{kind}")
             verdict, reason = await self._zhipu_ai_check(img_bytes, kind)
             if verdict != "unknown":
@@ -443,7 +450,7 @@ class AdGuardPlugin(Star):
             # 智谱失败（余额不足/限流等）→ 回退 AstrBot LLM
             logger.warning(f"adguard: 智谱检测失败({reason})，回退 AstrBot LLM")
         else:
-            logger.debug(f"adguard: 未配置智谱，回退 AstrBot LLM 检测{kind}")
+            logger.debug(f"adguard: 未配置智谱或处于失败冷却期，回退 AstrBot LLM 检测{kind}")
         try:
             provider_id = str(self._cfg("ai_provider_id", "") or "")
             if not provider_id:
