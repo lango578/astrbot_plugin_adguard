@@ -47,6 +47,11 @@ try:
 except ImportError:  # pragma: no cover
     RapidOCR = None
 
+try:
+    import httpx
+except ImportError:  # pragma: no cover
+    httpx = None
+
 
 # ============================================================
 # 默认关键词与特征
@@ -322,11 +327,89 @@ class AdGuardPlugin(Star):
             return "ok", ""
         return "unknown", "AI无法判定"
 
+    # ============================================================
+    # 智谱 GLM-4V-Flash 视觉检测
+    # ============================================================
+    def _zhipu_api_key(self) -> str:
+        """返回智谱 API Key。
+
+        支持两种填写方式：
+        1) 分别在 zhipu_api_key_id / zhipu_api_key_secret 填两部分；
+        2) 直接把完整 Key（含点号）填在 zhipu_api_key_id。
+        """
+        key_id = str(self._cfg("zhipu_api_key_id", "") or "").strip()
+        secret = str(self._cfg("zhipu_api_key_secret", "") or "").strip()
+        if not key_id:
+            return ""
+        if "." in key_id and not secret:
+            return key_id
+        return f"{key_id}.{secret}"
+
+    def _zhipu_configured(self) -> bool:
+        return bool(self._zhipu_api_key())
+
+    async def _zhipu_ai_check(
+        self, img_bytes: bytes, kind: str
+    ) -> tuple[str, str]:
+        """调用智谱 GLM-4V-Flash 判断图片是否为广告。返回 (verdict, reason)。"""
+        if httpx is None:
+            logger.warning("adguard: 未安装 httpx，无法调用智谱 AI")
+            return "unknown", "缺少httpx依赖"
+        api_key = self._zhipu_api_key()
+        if not api_key:
+            return "unknown", "未配置智谱APIKey"
+        model = str(self._cfg("zhipu_model", "glm-4v-flash") or "glm-4v-flash")
+        base_url = str(
+            self._cfg(
+                "zhipu_base_url",
+                "https://open.bigmodel.cn/api/paas/v4/chat/completions",
+            )
+            or "https://open.bigmodel.cn/api/paas/v4/chat/completions"
+        )
+        prompt = str(self._cfg("ai_prompt", DEFAULT_AI_PROMPT))
+        b64 = base64.b64encode(img_bytes).decode()
+        payload = {
+            "model": model,
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": prompt},
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:image/jpeg;base64,{b64}"
+                            },
+                        },
+                    ],
+                }
+            ],
+        }
+        headers = {"Authorization": f"Bearer {api_key}"}
+        timeout = httpx.Timeout(60)
+        try:
+            async with httpx.AsyncClient(timeout=timeout) as client:
+                resp = await client.post(base_url, json=payload, headers=headers)
+                resp.raise_for_status()
+                data = resp.json()
+            choices = data.get("choices") or []
+            if not choices:
+                return "unknown", "智谱AI无返回"
+            content = choices[0].get("message", {}).get("content", "") or ""
+            return self._parse_ai_answer(str(content).strip())
+        except Exception as e:
+            logger.warning(f"adguard: 智谱AI识别失败({kind}): {e}")
+            return "unknown", "智谱AI识别出错"
+
 
     async def _ai_check(
         self, event: AstrMessageEvent, img_bytes: bytes, kind: str
     ) -> tuple[str, str]:
-        """调用 AstrBot 配置的 LLM 视觉能力判断图片是否为广告。返回 (verdict, reason)。"""
+        """判断图片是否为广告。优先使用智谱 GLM-4V-Flash（若已配置 API Key），
+        否则回退到 AstrBot 配置的 LLM 视觉能力。返回 (verdict, reason)。"""
+        # 优先智谱 GLM-4V-Flash
+        if self._zhipu_configured():
+            return await self._zhipu_ai_check(img_bytes, kind)
         try:
             provider_id = str(self._cfg("ai_provider_id", "") or "")
             if not provider_id:
