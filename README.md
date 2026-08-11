@@ -56,6 +56,10 @@ AstrBot 插件：**QQ 群广告检测**。自动检测群消息中的**文字广
 | `audit_max_pending` | 最多同时保留的待审核记录数 | `20` |
 | `audit_stop_event` | 疑似内容进入审核后终止事件传播 | `true` |
 | `learn_max_entries` | 学习记录库上限（超出自动淘汰最旧） | `500` |
+| `zhipu_api_key_id` | 智谱 API Key 的 ID 部分（也可直接填完整 Key） | `""` |
+| `zhipu_api_key_secret` | 智谱 API Key 的 Secret 部分 | `""` |
+| `zhipu_model` | 智谱视觉模型名称 | `glm-4v-flash` |
+| `zhipu_base_url` | 智谱 API 地址（一般无需修改） | `https://open.bigmodel.cn/api/paas/v4/chat/completions` |
 
 ## 管理指令
 
@@ -103,7 +107,16 @@ AstrBot 插件：**QQ 群广告检测**。自动检测群消息中的**文字广
 ## 常见问题
 
 **Q1：图片/视频检测不生效？**
-运行 `/adguard status` 查看 OCR 与 OpenCV 是否可用。若均不可用且 `image_check=auto`，请确认已配置支持图片的 AI 模型（或在配置中填写 `ai_provider_id`）。
+运行 `/adguard status` 查看 OCR 与 OpenCV 是否可用。若均不可用且 `image_check=auto`，请确认已配置支持图片的 AI 模型（或在配置中填写 `ai_provider_id`），或按下面 Q4 接入智谱 GLM-4V-Flash。
+
+**Q4：如何接入智谱 GLM-4V-Flash（免费视觉模型）？**
+智谱 GLM-4V-Flash 是智谱 AI 提供的免费多模态视觉模型，无需在 AstrBot 中配置模型提供商，只需在插件配置中填写智谱 API Key：
+1. 登录 https://open.bigmodel.cn ，在「API Keys」页面创建一个 Key（格式为 `{ID}.{SECRET}`）；
+2. 在插件配置中把 Key 的 **ID 部分**填入 `zhipu_api_key_id`、**Secret 部分**填入 `zhipu_api_key_secret`（也可直接把完整 Key 填在 `zhipu_api_key_id` 中）；
+3. 将 `image_check` / `video_check` 设为 `ai` 或 `auto`；
+4. 重启/重载插件即可。配置了智谱后，AI 视觉检测会**优先使用智谱**，未配置时自动回退到 AstrBot 已配置的 LLM。
+
+> 说明：智谱 API Key 属于敏感凭据，仅保存在 AstrBot 本地配置文件中，不会上传第三方。
 
 **Q2：误判 / 漏判怎么办？**
 - 误判：用 `/adguard scan <文本>` 查看命中项，删除对应关键词，或提高 `score_threshold`；
