@@ -403,9 +403,15 @@ class AdGuardPlugin(Star):
                 data = resp.json()
             choices = data.get("choices") or []
             if not choices:
+                logger.warning(f"adguard: 智谱AI无返回({kind})，响应: {str(data)[:200]}")
                 return "unknown", "智谱AI无返回"
             content = choices[0].get("message", {}).get("content", "") or ""
-            return self._parse_ai_answer(str(content).strip())
+            verdict, reason = self._parse_ai_answer(str(content).strip())
+            logger.info(
+                f"adguard: 智谱AI判定({kind}) -> {verdict}"
+                f"{' - ' + reason if reason else ''}"
+            )
+            return verdict, reason
         except Exception as e:
             logger.warning(f"adguard: 智谱AI识别失败({kind}): {e}")
             return "unknown", "智谱AI识别出错"
@@ -418,7 +424,9 @@ class AdGuardPlugin(Star):
         否则回退到 AstrBot 配置的 LLM 视觉能力。返回 (verdict, reason)。"""
         # 优先智谱 GLM-4V-Flash
         if self._zhipu_configured():
+            logger.debug(f"adguard: 使用智谱 GLM-4V-Flash 检测{kind}")
             return await self._zhipu_ai_check(img_bytes, kind)
+        logger.debug(f"adguard: 未配置智谱，回退 AstrBot LLM 检测{kind}")
         try:
             provider_id = str(self._cfg("ai_provider_id", "") or "")
             if not provider_id:
@@ -812,12 +820,18 @@ class AdGuardPlugin(Star):
             logger.warning(f"adguard: 处理群消息异常: {e}")
 
     async def _handle_group_message(self, event: AstrMessageEvent) -> None:
-        if not self._enabled():
-            return
         group_id = event.get_group_id()
-        if not group_id or not self._should_check_group(group_id):
-            return
         sender_id = event.get_sender_id()
+        logger.debug(
+            f"adguard: 收到群消息 group={group_id} sender={sender_id} "
+            f"text={(event.message_str or '')[:30]!r}"
+        )
+        if not self._enabled():
+            logger.debug("adguard: 插件未启用，跳过")
+            return
+        if not group_id or not self._should_check_group(group_id):
+            logger.debug(f"adguard: 群 {group_id} 不在检测范围，跳过")
+            return
         if not sender_id:
             return
         if sender_id == event.get_self_id():
@@ -825,11 +839,14 @@ class AdGuardPlugin(Star):
         if self._cfg("skip_admins", True) and (
             event.is_admin() or self._is_configured_admin(sender_id)
         ):
+            logger.debug(f"adguard: 跳过管理员/管理 {sender_id}")
             return
         if self._is_user_whitelisted(sender_id):
+            logger.debug(f"adguard: 白名单用户 {sender_id}，跳过")
             return
         # 不检测本插件自身的管理指令，避免误伤管理员
         if re.match(r"^[/!．]?\s*adguard\b", (event.message_str or "").strip(), re.I):
+            logger.debug("adguard: 本插件指令，跳过检测")
             return
 
         # 同一消息 id 去重
@@ -859,6 +876,7 @@ class AdGuardPlugin(Star):
                 return
 
         if not images and not videos and total_score == 0:
+            logger.debug(f"adguard: 消息无媒体且文本无命中，放行")
             return
 
         # 3) 图片检测
@@ -882,6 +900,12 @@ class AdGuardPlugin(Star):
                 reasons.extend(hits)
                 if score >= 900:
                     break
+
+        # 4.5) 检测结果日志
+        logger.debug(
+            f"adguard: 检测完成 group={group_id} sender={sender_id} "
+            f"score={total_score} reasons={reasons[:5]}"
+        )
 
         # 5) 判定：直接处罚 / 二次审核 / 放行
         threshold = (
