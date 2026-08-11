@@ -41,7 +41,7 @@ AstrBot 插件：**QQ 群广告检测**。自动检测群消息中的**文字广
 | `media_score_threshold` | 图片/视频广告判定阈值 | `3` |
 | `keywords` / `strong_keywords` | 普通 / 高危广告关键词 | 内置常见广告词 |
 | `regex_patterns` | 自定义广告特征正则 | `[]` |
-| `image_check` / `video_check` | `off` / `auto` / `ocr` / `ai` | `auto` |
+| `image_check` / `video_check` | `off` / `auto` / `ocr` / `ai`（`auto` 为 OCR 优先、AI/智谱兜底） | `auto` |
 | `ai_provider_id` | AI 视觉检测的模型提供商 ID（留空自动使用当前会话模型） | `""` |
 | `action` | `escalate` / `mute` / `kick` / `recall_only` | `escalate` |
 | `mute_durations` | 禁言时长列表（秒），按违规次数依次选择 | `[300, 1800]` |
@@ -157,6 +157,10 @@ AstrBot 插件：**QQ 群广告检测**。自动检测群消息中的**文字广
    部署、使用本插件即表示您已阅读并同意本声明，并自行承担全部使用风险。
 
 ## 更新日志
+
+**v1.1.1（2026-08）**
+- 修复：`auto` 模式下 OCR 可用时不会调用 AI（智谱）的问题，现改为「OCR 优先，未命中再交由智谱 GLM-4V-Flash / AI 兜底」，智谱真正参与图片/视频广告检测
+- 优化：AI 不可用（未配置智谱且无 AstrBot 模型）时不再进入人工审核，避免打扰
 
 **v1.1.0（2026-08）**
 - 新增：接入智谱 GLM-4V-Flash 免费视觉模型（配置 `zhipu_api_key_id` / `zhipu_api_key_secret` 即可使用，优先于 AstrBot 内置 LLM 视觉，未配置自动回退）
