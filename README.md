@@ -77,6 +77,7 @@ AstrBot 插件：**QQ 群广告检测**。自动检测群消息中的**文字广
 /adguard audit <编号> yes|no 二次审核：确认广告 / 误判（记录学习）
 /adguard pending             查看本群待审核列表
 /adguard forget <编号>       移除待审核记录（不学习）
+/adguard selftest             插件自检（依赖/配置/文本检测）
 ```
 
 ## 处置策略说明（escalate 模式）
