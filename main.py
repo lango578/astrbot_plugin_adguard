@@ -585,10 +585,15 @@ class AdGuardPlugin(Star):
     async def _check_video(
         self, event: AstrMessageEvent, video: Video, mode: str
     ) -> tuple[int, list[str]]:
+        path = ""
         try:
             path = await video.convert_to_file_path()
         except Exception as e:
-            logger.warning(f"adguard: 获取视频文件失败: {e}")
+            logger.debug(f"adguard: convert_to_file_path 失败: {e}")
+        if not path or not os.path.exists(path):
+            path = await self._resolve_video_path(event, video)
+        if not path:
+            logger.warning("adguard: 获取视频文件失败，跳过视频检测")
             return 0, []
         max_frames = int(self._cfg("video_max_frames", 3) or 3)
         interval = float(self._cfg("video_frame_interval_sec", 5.0) or 5.0)
@@ -608,6 +613,40 @@ class AdGuardPlugin(Star):
             if score >= 900:  # AI 命中，无需继续抽帧检测
                 break
         return total_score, hits
+
+    async def _resolve_video_path(
+        self, event: AstrMessageEvent, video: Video
+    ) -> str:
+        """视频组件解析失败时的兜底：尝试 URL/path 字段，或通过协议端 get_file 获取。"""
+        # 1) url / path / file 为 http(s) 或本地存在的路径
+        for cand in (
+            getattr(video, "url", "") or "",
+            getattr(video, "path", "") or "",
+            getattr(video, "file", "") or "",
+        ):
+            if cand.startswith(("http://", "https://")):
+                return cand
+            try:
+                if os.path.exists(cand):
+                    return cand
+            except OSError:
+                pass
+        # 2) 通过协议端 get_file API 获取真实路径
+        bot = getattr(event, "bot", None)
+        file_val = getattr(video, "file", "") or getattr(video, "url", "")
+        if bot and file_val:
+            try:
+                info = await bot.call_action("get_file", file_id=file_val)
+                fpath = str(info.get("file") or "")
+                if fpath.startswith(("http://", "https://")):
+                    return fpath
+                if fpath and os.path.exists(fpath):
+                    return fpath
+                if fpath:
+                    logger.debug(f"adguard: get_file 返回路径不存在: {fpath}")
+            except Exception as e:
+                logger.debug(f"adguard: get_file 获取视频失败: {e}")
+        return ""
 
 
     # ============================================================
