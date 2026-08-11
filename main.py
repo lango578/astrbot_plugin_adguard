@@ -26,10 +26,19 @@ import time
 from collections import deque
 from typing import Any
 
-from astrbot.api import AstrBotConfig, logger
+from astrbot.api import logger
 from astrbot.api.event import AstrMessageEvent, MessageChain, filter
 from astrbot.api.message_components import At, Image, Plain, Reply, Video
 from astrbot.api.star import Context, Star
+
+# 兼容不同 AstrBot 版本的 AstrBotConfig 导入路径
+try:
+    from astrbot.api import AstrBotConfig
+except ImportError:
+    try:
+        from astrbot.core.config import AstrBotConfig
+    except ImportError:
+        from astrbot.core.config.astrbot_config import AstrBotConfig
 
 # ---- 可选依赖 ----
 try:
