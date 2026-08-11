@@ -1,0 +1,204 @@
+{
+  "enable": {
+    "description": "是否启用广告检测",
+    "type": "bool",
+    "default": true
+  },
+  "groups_only": {
+    "description": "只检测这些群（群号列表，留空则检测所有群）",
+    "type": "list",
+    "default": []
+  },
+  "groups_whitelist": {
+    "description": "白名单群号列表，这些群不检测广告",
+    "type": "list",
+    "default": []
+  },
+  "users_whitelist": {
+    "description": "白名单用户QQ号列表，这些用户不检测广告",
+    "type": "list",
+    "default": []
+  },
+  "admin_qq": {
+    "description": "拥有插件管理权限的QQ号列表（群主/群管理自动拥有）",
+    "type": "list",
+    "default": []
+  },
+  "skip_admins": {
+    "description": "跳过检测并处置群主/管理员/群管理",
+    "type": "bool",
+    "default": true
+  },
+  "score_threshold": {
+    "description": "文字广告判定阈值（分数达到即触发）",
+    "type": "int",
+    "default": 4
+  },
+  "media_score_threshold": {
+    "description": "图片/视频广告判定阈值",
+    "type": "int",
+    "default": 3
+  },
+  "keywords": {
+    "description": "普通广告关键词（每个命中 +2 分）",
+    "type": "list",
+    "default": [
+      "加群", "拉群", "进群", "群号", "裙号", "扫码", "扫一扫", "二维码",
+      "加v", "加V", "加wx", "加微信", "微信号", "薇信", "vx", "VX", "wx", "WX",
+      "微我", "私我", "私聊我", "滴滴我", "找我", "看我主页", "主页有",
+      "低价", "优惠", "福利", "免费", "免费领取", "领取福利", "红包群", "福利群",
+      "返利", "刷单", "兼职", "日结", "代充", "代练", "代购", "代刷", "代肝",
+      "代打", "陪玩", "接单", "派单", "出售", "出号", "收号", "回收",
+      "担保", "信誉", "白菜价", "拼单", "外挂", "脚本", "辅助", "卡密", "激活码",
+      "内部渠道", "稳赚", "回本", "理财", "投资", "股票", "荐股", "币圈",
+      "USDT", "火币", "欧易", "币安", "挖矿", "一级市场", "私募", "众筹",
+      "推广", "广告", "加我好友", "加我QQ", "QQ群", "拉你进群"
+    ]
+  },
+  "strong_keywords": {
+    "description": "高危广告关键词（每个命中 +4 分）",
+    "type": "list",
+    "default": [
+      "扫码进群", "扫码加群", "扫码添加", "扫码领取", "进群领取", "加群领取",
+      "加群领", "群号：", "群号:", "裙号：", "QQ群号", "QQ群：", "QQ群:",
+      "加v", "加V", "加VX", "加vx", "vx:", "vx：", "wx:", "wx：",
+      "微信号：", "微信号:", "加我微信", "加微信领取", "免费领取",
+      "领取福利", "福利群", "返利群", "刷单", "兼职日结", "日结兼职",
+      "代充", "代练", "出号", "回收游戏", "外挂", "脚本", "卡密", "激活码",
+      "稳赚", "回本", "内幕", "内部消息", "带你赚钱", "轻松日入", "躺赚"
+    ]
+  },
+  "regex_patterns": {
+    "description": "自定义广告特征正则（每个命中 +3 分，留空使用内置正则）",
+    "type": "list",
+    "default": []
+  },
+  "pattern_weight": {
+    "description": "内置特征正则的权重（群号/微信号/手机号等）",
+    "type": "int",
+    "default": 3
+  },
+  "link_weight": {
+    "description": "网址链接的权重",
+    "type": "int",
+    "default": 2
+  },
+  "image_check": {
+    "description": "图片检测方式：off 关闭 / auto 自动 / ocr 本地OCR / ai AI视觉",
+    "type": "string",
+    "default": "auto",
+    "options": ["off", "auto", "ocr", "ai"]
+  },
+  "video_check": {
+    "description": "视频检测方式：off 关闭 / auto 自动 / ocr 本地OCR / ai AI视觉",
+    "type": "string",
+    "default": "auto",
+    "options": ["off", "auto", "ocr", "ai"]
+  },
+  "video_max_frames": {
+    "description": "视频最多抽帧检测数量",
+    "type": "int",
+    "default": 3
+  },
+  "video_frame_interval_sec": {
+    "description": "视频抽帧间隔（秒）",
+    "type": "float",
+    "default": 5.0
+  },
+  "max_media_per_message": {
+    "description": "每条消息最多检测的图片/视频数量",
+    "type": "int",
+    "default": 3
+  },
+  "ai_provider_id": {
+    "description": "AI 视觉检测使用的模型提供商 ID（留空则自动使用当前会话的模型，需支持图片输入）",
+    "type": "string",
+    "default": ""
+  },
+  "ai_prompt": {
+    "description": "AI 视觉检测提示词",
+    "type": "text",
+    "default": "你是一个QQ群广告内容识别助手。请判断这张图片是否为广告图片。广告图片的特征包括：营销推广、出售/代充/刷单/兼职等信息、引导加群/加微信/加QQ等联系方式、二维码引流、低价优惠促销、外挂脚本卡密出售等内容。请只输出一个 JSON 对象，格式为：{\"is_ad\": true或false, \"reason\": \"简短原因\"}，不要输出其他内容。"
+  },
+  "action": {
+    "description": "处置方式：escalate 逐级升级(禁言→踢人) / mute 仅禁言 / kick 直接踢 / recall_only 仅撤回",
+    "type": "string",
+    "default": "escalate",
+    "options": ["escalate", "mute", "kick", "recall_only"]
+  },
+  "mute_durations": {
+    "description": "禁言时长列表（秒），按违规次数依次选择，如 [300, 1800, 3600]",
+    "type": "list",
+    "default": [300, 1800]
+  },
+  "kick_after": {
+    "description": "第几次违规后移出群聊（仅 escalate 模式生效）",
+    "type": "int",
+    "default": 3
+  },
+  "recall_message": {
+    "description": "是否撤回广告消息",
+    "type": "bool",
+    "default": true
+  },
+  "notify_group": {
+    "description": "是否在群内通知处置结果",
+    "type": "bool",
+    "default": true
+  },
+  "stop_event": {
+    "description": "检测到广告后终止事件传播（阻止机器人继续回复广告消息）",
+    "type": "bool",
+    "default": true
+  },
+  "forgive_hours": {
+    "description": "违规记录在多少小时后清零（0 表示永不清零）",
+    "type": "int",
+    "default": 24
+  },
+  "dedup_seconds": {
+    "description": "同一用户两次处罚的最短间隔（秒），防止刷屏重复处罚",
+    "type": "int",
+    "default": 20
+  },
+  "audit_enable": {
+    "description": "是否开启二次审核（疑似内容发给群管理员人工确认）",
+    "type": "bool",
+    "default": true
+  },
+  "audit_threshold": {
+    "description": "疑似广告进入二次审核的最低得分（低于处罚阈值但命中特征时触发）",
+    "type": "int",
+    "default": 2
+  },
+  "audit_mention_admin": {
+    "description": "审核通知是否 @ 群管理员",
+    "type": "bool",
+    "default": true
+  },
+  "audit_attach_image": {
+    "description": "审核通知是否附带被审核的图片预览",
+    "type": "bool",
+    "default": true
+  },
+  "audit_ttl_minutes": {
+    "description": "待审核记录的有效期（分钟），超时自动清除",
+    "type": "int",
+    "default": 120
+  },
+  "audit_max_pending": {
+    "description": "最多同时保留的待审核记录数",
+    "type": "int",
+    "default": 20
+  },
+  "audit_stop_event": {
+    "description": "疑似内容进入审核后终止事件传播（阻止机器人回复疑似广告）",
+    "type": "bool",
+    "default": true
+  },
+  "learn_max_entries": {
+    "description": "学习记录库上限（超出自动淘汰最旧记录）",
+    "type": "int",
+    "default": 500
+  }
+}
